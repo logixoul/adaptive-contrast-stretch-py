@@ -45,11 +45,10 @@ class ContrastOperator:
 
 	def makeBoundaryMap_fast(self, srcImage, func, iterations, downscale, blurWidth):
 		boundaryState = srcImage
-		blurState = srcImage
 		for i in range(iterations):
-			blurState = Static.smoothGaussianBlur(boundaryState, math.floor((i + 1)*1.5+1))
-			#blurState = Static.smoothGaussianBlur(boundaryState, 3)
-			boundaryState = func(boundaryState, blurState)
+			blurred = Static.smoothGaussianBlur(boundaryState, math.floor((i + 1)))
+
+			boundaryState = func(boundaryState, blurred)
 		return boundaryState
 
 	def makeBoundaryMap3(self, srcImage, func, iterations, downscale, blurWidth):
