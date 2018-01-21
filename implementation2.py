@@ -46,9 +46,12 @@ class ContrastOperator:
 	def makeBoundaryMap_fast(self, srcImage, func, iterations, downscale, blurWidth):
 		boundaryState = srcImage
 		for i in range(iterations):
-			blurred = Static.smoothGaussianBlur(boundaryState, math.floor((i + 1)))
-
-			boundaryState = func(boundaryState, blurred)
+			blurState = boundaryState
+			#blurState = Static.smoothGaussianBlur(blurState, math.floor((i + 1)))
+			for j in range(1):
+				blurState = cv2.bilateralFilter(blurState, 7, 7, 7)
+				interruption_point()
+			boundaryState = func(boundaryState, blurState)
 		return boundaryState
 
 	def makeBoundaryMap3(self, srcImage, func, iterations, downscale, blurWidth):
@@ -195,7 +198,7 @@ class ContrastOperator:
 		result = Static.stretchArrayLocally(minMap, maxMap, self.srcImageG, self.options.contrast)
 		self.imgpack["before luminance blend"] = result
 		#resultHLS = ip.luminanceBlendHLS(result, self.srcImage)
-		lib.mm(result,"result")
+		#lib.mm(result,"result")
 		
 		#self.imgpack["resultHLS"] = resultHLS
 		

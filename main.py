@@ -16,7 +16,6 @@ subprocess.call("./setup.py build_ext --inplace", shell=True)
 os.chdir("..")
 print(colorama.Style.RESET_ALL)
 
-app = ip_gui.App(implementation2.ContrastOperator)
 DEFAULT_QUALITY = 1.0/4.0
 #tgui.addSlider("power", 0, 200, 100,
 #	valueMapper=lambda value: value / 100.0)
@@ -31,11 +30,12 @@ tgui.addSlider("method2_stElement_diam", 1, 32, 1,
 tgui.addSlider("d", 1, 40, 24)
 tgui.addSlider("dscale", 1, 40, 8)
 #tgui.addSlider("step", 1, 100, 10, lambda x: x / 10.0)
-tgui.addSlider("iterations", 1, 300, 30)
+tgui.addSlider("iterations", 1, 300, 200)
 #tgui.addSlider("invRh_max", 1, 1000, 1)
 
 #tgui.addSlider("method3_power", 0, 200, 100,
 #	valueMapper=lambda value: value / 100.0)
 tgui.addSlider("thres", 1, 100, 4, lambda x: x / 100.0)
+app = ip_gui.App(implementation2.ContrastOperator)
 ip_gui.app.run()
 		
