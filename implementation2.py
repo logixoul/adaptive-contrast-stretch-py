@@ -42,32 +42,41 @@ class ContrastOperator:
 			raise Exception("couldn't optimize. cause of termination: %s" % result.message)
 		k = result.x[0]
 		return k
-	
-	def makeBoundaryMap3(self, srcImage, func, iterations, downscale, blurWidth=4.0):
+
+	def makeBoundaryMap_fast(self, srcImage, func, iterations, downscale, blurWidth):
+		boundaryState = srcImage
+		blurState = srcImage
+		for i in range(iterations):
+			blurState = Static.smoothGaussianBlur(boundaryState, math.floor((i + 1)*1.5+1))
+			#blurState = Static.smoothGaussianBlur(boundaryState, 3)
+			boundaryState = func(boundaryState, blurState)
+		return boundaryState
+
+	def makeBoundaryMap3(self, srcImage, func, iterations, downscale, blurWidth):
 		#downscale = 1.0/16.0
-		d = self.options.method3_d
+		d = self.options.d
 		r = d//2
 		
 		def kernel_(x, k): return math.exp(-k * (x**2))
-		THRES = self.options.method3_thres
+		THRES = self.options.thres
 		k = Static.choose_k(kernel_, THRES, r)
 		print("chosen k ", k)
 		def kernel(x):
 			return kernel_(x, k)
 		
-		d += self.options.method3_dscale
+		d += self.options.dscale
 		if d % 2 == 0:
 			d += 1
 		r = d//2
-		
-		#stElement = cv2.getStructuringElement(cv2.MORPH_RECT, (downscale, downscale), (0,0))
+		"""stElement = cv2.getStructuringElement(cv2.MORPH_RECT, (downscale, downscale), (0,0))
 		stElement =\
 			np.zeros((downscale*2-1, downscale*2-1), dtype=np.uint8)
 		stElement[downscale-1:,downscale-1:]=1
 		preDownsize = { cv2.min: cv2.erode, cv2.max: cv2.dilate }[func]
 		srcImage2 = preDownsize(srcImage, stElement)
 		srcImageSmall = cv2.resize(srcImage2, (0,0), None, 1.0/downscale, 1.0/downscale, cv2.INTER_NEAREST)
-		reference = srcImageSmall
+		reference = srcImageSmall"""
+		reference = srcImage
 		if func == cv2.min:
 			reference = 1.0 - reference
 		state = reference
@@ -80,11 +89,13 @@ class ContrastOperator:
 				interruption_point()
 		if func == cv2.min:
 			state = 1.0 - state
-		result = cv2.resize(state, (srcImage.shape[1], srcImage.shape[0]), None, 0, 0, cv2.INTER_LINEAR)
+		"""result = cv2.resize(state, (srcImage.shape[1], srcImage.shape[0]), None, 0, 0, cv2.INTER_LINEAR)
 		result = np.minimum(1.0, np.maximum(0.0, result)) #lanczos overshoot
+		"""
+		result = np.copy(state)
 		return result
 	
-	makeBoundaryMapCurrent = makeBoundaryMap3
+	makeBoundaryMapCurrent = makeBoundaryMap_fast
 	
 	# f(x)=a + b * x^c
 	# f(0) = lB
@@ -131,16 +142,6 @@ class ContrastOperator:
 		return result
 	
 	@StaticMethod
-	def smoothGaussianBlur(img, diameter):
-		ksize = int(math.ceil(diameter))
-		if ksize % 2 == 0:
-			ksize += 1
-		return cv2.GaussianBlur(img, (ksize, ksize), lib.cvhelpers.getSigmaForDiameter(diameter))
-	
-	# amount=0 => no sharpening
-	# amount=1 => strong sharpening
-	# amount>1 => even stronger
-	@StaticMethod
 	def sharpen(img, radius, amount):
 		diameter = 2.0 * radius + 1.0
 		ksize = int(math.ceil(diameter))
@@ -148,6 +149,16 @@ class ContrastOperator:
 			ksize += 1
 		blurred = cv2.GaussianBlur(img, (ksize, ksize), lib.cvhelpers.getSigmaForDiameter(diameter))
 		return img + (img - blurred) * amount
+	
+	# amount=0 => no sharpening
+	# amount=1 => strong sharpening
+	# amount>1 => even stronger
+	@StaticMethod
+	def smoothGaussianBlur(img, diameter):
+		ksize = int(math.ceil(diameter))
+		if ksize % 2 == 0:
+			ksize += 1
+		return cv2.GaussianBlur(img, (ksize, ksize), lib.cvhelpers.getSigmaForDiameter(diameter))
 	
 	def run(self):
 		#lib.break_()
@@ -162,7 +173,7 @@ class ContrastOperator:
 		
 		srcImage0 = self.srcImage.copy()
 		b1 = Static.smoothGaussianBlur(self.srcImage, 4.0 * self.srcImage.shape[0] / 300.0)
-		self.srcImage *= b1
+		#self.srcImage *= b1
 		self.srcImage = np.minimum(self.srcImage, 1.0)
 		
 		#self.srcImage = hdr.luminanceReinhard(self.srcImage)
@@ -173,7 +184,7 @@ class ContrastOperator:
 		#self.imgpack["src[scaled]"] = hdr.luminanceReinhard(self.srcImage/geomAverage(self.srcImage))
 		
 		self.srcImageG = ip.linToGrayscale(self.srcImage)#, ip.METHOD_LUMINANCE)
-		self.imgpack["srcImageG"] = self.srcImageG
+		#self.imgpack["srcImageG"] = self.srcImageG
 		blurWidth = self.options.d
 		minMap = self.makeBoundaryMapCurrent(self.srcImageG, cv2.min,
 				iterations=self.options.iterations, downscale=self.options.quality, blurWidth=blurWidth)
@@ -184,14 +195,14 @@ class ContrastOperator:
 		
 		result = Static.stretchArrayLocally(minMap, maxMap, self.srcImageG, self.options.contrast)
 		self.imgpack["before luminance blend"] = result
-		resultHLS = ip.luminanceBlendHLS(result, self.srcImage)
+		#resultHLS = ip.luminanceBlendHLS(result, self.srcImage)
 		lib.mm(result,"result")
 		
-		self.imgpack["resultHLS"] = resultHLS
+		#self.imgpack["resultHLS"] = resultHLS
 		
-		resultHSV = ip.luminanceBlendHSV(result, self.srcImage)
+		#resultHSV = ip.luminanceBlendHSV(result, self.srcImage)
 		
-		self.imgpack["resultHSV"] = resultHSV
+		#self.imgpack["resultHSV"] = resultHSV
 		
 		resultXYZ = ip.luminanceBlendXYZ_(result, self.srcImage)
 		self.imgpack["resultXYZ"] = resultXYZ
